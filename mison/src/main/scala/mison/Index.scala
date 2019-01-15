@@ -241,12 +241,16 @@ object IndexBuilder {
         }
       }
     }
-    //fix last level, the above code last level will not change
-    if (maxLevel > 1) {
+    //fix upper level, the above code the upper one level will only delete 1 contain in the lower one level
+    //but the logic zero one level is completely(In fact, in this code, zero level has been occupied by StringMask, so physical one level is logic zero level )
+    //so we use upperLevel & = ~lowerLevel, and we will get the exactly upperLevel
+    //if the maxLevel is 1, we do nothing.
+    forloop(1, _ < maxLevel, _ + 1) { l =>
       forloop(0, _ < len, _ + 1) { i =>
-        index(maxLevel)(i) &= ~index(maxLevel - 1)(i)
+        index(l + 1)(i) &= ~index(l)(i)
       }
     }
+
     index(maxLevel)
     new Index(index)
   }
