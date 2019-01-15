@@ -1,3 +1,6 @@
 target
 .DS_Store
-.idea
+.idea/
+benchmarks/native/
+*.iml
+*.iws
