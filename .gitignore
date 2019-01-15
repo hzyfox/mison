@@ -4,3 +4,4 @@ target
 benchmarks/native/
 *.iml
 *.iws
+*.ipr
