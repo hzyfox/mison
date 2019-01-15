@@ -7,9 +7,11 @@ object Main {
     val json = getJson("long")
     println(json)
 
-    val values = Parser.parse(json, Seq("html_url", "created_at"))
-    println(values.get("html_url"))
-    println(values.get("created_at"))
+    //val values = Parser.parse(json, Seq("html_url", "created_at"))
+    val values = Parser.parse(json, Seq("login"))
+    //println(values.get("html_url"))
+    //println(values.get("created_at"))
+    println(values.get("login"))
   }
 
   // -- Utilities

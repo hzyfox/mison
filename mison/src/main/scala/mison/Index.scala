@@ -8,9 +8,13 @@ object Index {
 
   class StructuralCharacters(val bitmaps: Array[Bitmap]) extends AnyVal {
     def backslashs = bitmaps(0)
+
     def quotes = bitmaps(1)
+
     def colons = bitmaps(2)
+
     def leftBraces = bitmaps(3)
+
     def rightBraces = bitmaps(4)
   }
 
@@ -23,6 +27,7 @@ object Index {
 }
 
 class Index(val bitmaps: Array[Index.Bitmap]) extends AnyVal {
+
   import Index._
 
   /**
@@ -36,10 +41,10 @@ class Index(val bitmaps: Array[Index.Bitmap]) extends AnyVal {
     val positions = new java.util.ArrayList[Int](32)
     forloop(startw, _ < endw, _ + 1) { i =>
       var colon = colons(i)
-      while(colon != 0) {
+      while (colon != 0) {
         val bit = E(colon)
         val offset = (i * 64) + popcnt(bit - 1)
-        if(start <= offset && offset <= end) {
+        if (start <= offset && offset <= end) {
           positions.add(offset)
         }
         colon = R(colon)
@@ -61,11 +66,13 @@ object IndexBuilder {
     * Returns the bitmaps in this order: \,",:,{,}
     */
   def structuralCharacters(json: Array[Byte], useAvx2: Boolean): StructuralCharacters =
-    if(useAvx2) {
+    if (useAvx2) {
       val len = (json.length + 63) / 64
       val bitmap0 = Array.ofDim[Long](len * 5)
       val bitmaps = Array.ofDim[Bitmap](5)
+
       @native def avx2Bitmaps(jsonBytes: Array[Byte], bitmap: Bitmap): Unit
+
       avx2Bitmaps(json, bitmap0)
       forloop(0, _ < 5, _ + 1) { i =>
         bitmaps(i) = Array.ofDim[Long](len)
@@ -75,17 +82,19 @@ object IndexBuilder {
     }
     else {
       val len = (json.length + 63) / 64
+
       def bitmap(maskCharacter: Char): Bitmap = {
         val maskByte = maskCharacter.toByte
         val bitmap = Array.ofDim[Long](len)
         val bound = Math.min(json.length, bitmap.length * 64)
         forloop(0, _ < len, _ + 1) { l =>
           forloop(((l + 1) * 64) - 1, _ >= l * 64, _ - 1) { i =>
-            bitmap(l) = (bitmap(l) << 1) | ((if(i < bound) (if(json(i) == maskByte) 0x1 else 0x0) else 0x0))
+            bitmap(l) = (bitmap(l) << 1) | ((if (i < bound) (if (json(i) == maskByte) 0x1 else 0x0) else 0x0))
           }
         }
         bitmap
       }
+
       new StructuralCharacters(Array(bitmap('\\'), bitmap('"'), bitmap(':'), bitmap('{'), bitmap('}')))
     }
 
@@ -97,7 +106,7 @@ object IndexBuilder {
     // First we identify the backslash immediatly followed by a quote character
     val backslashs = structuralCharacters.backslashs
     val quotes = structuralCharacters.quotes
-    val len = backslashs.size
+    val len = backslashs.length
     val backslashQuotes = Array.ofDim[Long](len)
     forloop(0, _ < len - 1, _ + 1) { i =>
       backslashQuotes(i) = ((quotes(i) >> 1) | (quotes(i + 1) << 63)) & backslashs(i)
@@ -110,20 +119,29 @@ object IndexBuilder {
     forloop(0, _ < len, _ + 1) { i =>
       var unstructuralQuote: Long = 0x0
       var backslashQuoteBits = backslashQuotes(i)
-      while(backslashQuoteBits != 0) {
+      while (backslashQuoteBits != 0) {
         // Check the leftmost backslash
         val mask = S(backslashQuoteBits)
         val countOnes = popcnt(mask)
         val backslashOnLeft = (backslashs(i) & mask) << (64 - countOnes)
         val numberOfLeadingOnes = leadingOnes(backslashOnLeft)
-        if(numberOfLeadingOnes != countOnes) {
-          if((numberOfLeadingOnes & 1) == 1) {
+        if (numberOfLeadingOnes != countOnes) {
+          if ((numberOfLeadingOnes & 1) == 1) {
             unstructuralQuote = unstructuralQuote | E(backslashQuoteBits)
           }
           backslashQuoteBits = R(backslashQuoteBits)
         }
         else {
-          sys.error("TODO");
+          //全部为1说明要加上算前一个word的末尾连续1，才能判断奇偶数
+          if (i - 1 > 0) {
+            val preBackSlashQuoteBits = backslashQuotes(i - 1)
+            val preLeadingOnes = leadingOnes(preBackSlashQuoteBits)
+            if (((numberOfLeadingOnes + preLeadingOnes) & 1) == 1) {
+              unstructuralQuote = unstructuralQuote | E(backslashQuoteBits)
+            }
+            backslashQuoteBits = R(backslashQuoteBits)
+            sys.error(s"consecutive backslash occurs at ${i * 64 + countOnes}th in the json string")
+          }
         }
       }
       unstructuralQuoteMask(i) = ~unstructuralQuote
@@ -148,12 +166,12 @@ object IndexBuilder {
     forloop(0, _ < len, _ + 1) { i =>
       var quote = quotes(i)
       var mask: Long = 0x0
-      while(quote != 0) {
+      while (quote != 0) {
         mask = mask ^ S(quote)
         quote = R(quote)
         n = n + 1
       }
-      stringMask(i) = if((n & 1) == 0) ~mask else mask
+      stringMask(i) = if ((n & 1) == 0) ~mask else mask
     }
 
     // Use the string mask to filter out unstructural characters
@@ -161,6 +179,7 @@ object IndexBuilder {
     val leftBraces = structuralCharacters.leftBraces
     val rightBraces = structuralCharacters.rightBraces
     forloop(0, _ < len, _ + 1) { i =>
+      //这里quote被替换成stringmask了，用于nameBound方法 左引号为1 右引号为， 引号内部分全部为0，以过滤双引号里面的unstructure colon quote and left/right braces
       quotes(i) = stringMask(i)
       colons(i) = colons(i) & stringMask(i)
       leftBraces(i) = leftBraces(i) & stringMask(i)
@@ -177,7 +196,7 @@ object IndexBuilder {
     val colons = structuralCharacters.colons
     val leftBraces = structuralCharacters.leftBraces
     val rightBraces = structuralCharacters.rightBraces
-    val len = colons.size
+    val len = colons.length
     val index = Array.ofDim[Bitmap](maxLevel + 1)
     index(0) = Array.ofDim[Long](len)
     System.arraycopy(stringMask, 0, index(0), 0, len)
@@ -193,24 +212,23 @@ object IndexBuilder {
       loop {
         var rightBit = E(right)
         var leftBit = E(left)
-        while(leftBit != 0 && (rightBit == 0 || java.lang.Long.compareUnsigned(leftBit, rightBit) < 0)) {
+        while (leftBit != 0 && (rightBit == 0 || java.lang.Long.compareUnsigned(leftBit, rightBit) < 0)) {
           S.push(Array(i, leftBit))
           left = R(left)
           leftBit = E(left)
         }
-        if(rightBit != 0) {
+        if (rightBit != 0) {
           val x = S.pop
           val j = x(0).asInstanceOf[Int]
           val leftBit = x(1)
           val level = S.size
-          if(level > 0 && level <= maxLevel) {
+          if (level > 0 && level <= maxLevel) {
             val upperLevel = level - 1
-            if(i == j) {
+            if (i == j) {
               index(upperLevel + 1)(i) = index(upperLevel + 1)(i) & ~(rightBit - leftBit)
             }
             else {
               index(upperLevel + 1)(j) = index(upperLevel + 1)(j) & (leftBit - 1)
-              index(upperLevel + 1)(i) = index(upperLevel + 1)(i) & ~(rightBit - 1)
               forloop(j + 1, _ < i, _ + 1) { k =>
                 index(upperLevel + 1)(k) = 0
               }
@@ -223,7 +241,13 @@ object IndexBuilder {
         }
       }
     }
-
+    //fix last level, the above code last level will not change
+    if (maxLevel > 1) {
+      forloop(0, _ < len, _ + 1) { i =>
+        index(maxLevel)(i) &= ~index(maxLevel - 1)(i)
+      }
+    }
+    index(maxLevel)
     new Index(index)
   }
 

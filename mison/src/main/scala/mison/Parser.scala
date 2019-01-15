@@ -6,9 +6,9 @@ object Parser {
 
   def parse(json: String, query: Seq[String], encoding: String = "utf-8"): Map[String,String] = {
     val jsonBytes = json.getBytes(encoding)
-    val index = Index(jsonBytes, 1)
+    val index = Index(jsonBytes, 2)
     val stringMask = index.bitmaps(0)
-    val level1Positions = index.getColonPositions(0, json.size, 1)
+    val level1Positions = index.getColonPositions(0, json.size, 2)
     val len = level1Positions.size
     val fields = query.zipWithIndex.toMap
 
