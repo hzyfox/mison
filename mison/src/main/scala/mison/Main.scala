@@ -1,17 +1,30 @@
 package mison
 
+import com.alibaba.fastjson.JSONPath
+import com.fasterxml.jackson.databind.ObjectMapper
+
 object Main {
+
   import Index._
 
   def main(args: Array[String]): Unit = {
     val json = getJson("long")
     println(json)
-
+    val jacksonMapper = new ObjectMapper()
+    val value = jacksonMapper.readTree(json)
+    println(value.at("/user/id"))
+    val fastJsonValue = JSONPath.read(json, "$.user.id")
+    println(fastJsonValue)
     //val values = Parser.parse(json, Seq("html_url", "created_at"))
-    val values = Parser.parse(json, Seq("login"))
-    //println(values.get("html_url"))
-    //println(values.get("created_at"))
-    println(values.get("login"))
+    val values = Parser.parse(json, Seq("html_url", "created_at","body"))
+    println(values.get("html_url"))
+    println(values.get("created_at"))
+    println(values.get("body"))
+    //    val values1 = ParserBytes.parse(json, Seq("html_url", "created_at"), json.getBytes("UTF-8"))
+    //    println(values1.get("html_url"))
+    //    println(values1.get("created_at"))
+    //    println(values.get("id"))
+    //    println(values.get("login"))
   }
 
   // -- Utilities

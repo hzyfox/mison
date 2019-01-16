@@ -98,6 +98,7 @@ object IndexBuilder {
       new StructuralCharacters(Array(bitmap('\\'), bitmap('"'), bitmap(':'), bitmap('{'), bitmap('}')))
     }
 
+
   /**
     * See Mison 4.2.2
     * Build the structural quote bitmap
@@ -251,7 +252,7 @@ object IndexBuilder {
       }
     }
 
-    index(maxLevel)
+    //index(maxLevel)
     new Index(index)
   }
 

@@ -2,16 +2,17 @@ package mison
 
 import Macros._
 
-object Parser {
+object ParserBytes {
 
   //路径，待实现，以实现访问多层
-  def parse(json: String, query: Seq[String], encoding: String = "utf-8"): Map[String, String] = {
-    val jsonBytes = json.getBytes(encoding)
-    val index = Index(jsonBytes, 1)
-    val stringMask = index.bitmaps(0)
-    val level1Positions = index.getColonPositions(0, json.length, 1)
-    val len = level1Positions.size
-    val fields = query.zipWithIndex.toMap
+  def parse(json: String, query: Seq[String], index: Index, stringMask: Index.Bitmap, level1Positions: java.util.List[Int],
+            len: Int, fields: Map[String, Int], jsonBytes: Array[Byte], encoding: String = "utf-8"): Map[String, String] = {
+    //val jsonBytes = json.getBytes(encoding)
+//    val index = Index(jsonBytes, 1)
+//    val stringMask = index.bitmaps(0)
+//    val level1Positions = index.getColonPositions(0, json.length, 1)
+//    val len = level1Positions.size
+//    val fields = query.zipWithIndex.toMap
 
     //start end 都是index 从0开始, start是左引号index+1的位置 end是右"的下标 所以 end-start为字符串长度，取字符串可以过滤掉引号
     @inline def fieldNameBounds(colonPosition: Int, stringMask: Index.Bitmap): (Int, Int) = {
@@ -80,7 +81,7 @@ object Parser {
       new String(jsonBytes, start, end - start, encoding)
     }
 
-    def findResult(len: Int, fields: Map[String, Int], level1Positions: java.util.List[Int], jsonBytes: Array[Byte], stringMask: Index.Bitmap): Map[String, String] = {
+    @inline def findResult(len: Int, fields: Map[String, Int], level1Positions: java.util.List[Int], jsonBytes: Array[Byte], stringMask: Index.Bitmap): Map[String, String] = {
       val result = collection.mutable.HashMap.empty[String, String]
       forloop(0, _ < len, _ + 1) { i =>
         val position = level1Positions.get(i)
